@@ -10,6 +10,9 @@ extern int add_number_to_list(int number);
 extern char *get_poetry_line(int num);
 extern int add_strings_to_list();
 extern char *get_first_word(char *line);
+extern void sort_list_ascending_order();
+extern void insert_node_ascending(struct num_and_string *new_node);
+
 
 
 struct num_and_string
@@ -31,36 +34,46 @@ int main(int argc, char* argv[])
     int i;
     unsigned long len;
     char filename[20];
+    struct num_and_string *temp_node;
     FILE *fp;
     // Initialize list indicating that the list is empty
     ns_list = NULL;
     
     
+    
+    
     for (i=0; i<10; i++)
     {
         random_number = randomNumberGen(i);
-        printf("seed = %d, rand = %d\n", i, random_number);
-        
+        //       printf("seed = %d, rand = %d\n", i, random_number);
         strcpy(filename, "file_");
         len = strlen(filename);
         filename[len] = '0' + i;
         filename[len+1] = '\0';             // add null char at the end
         strcat(filename, ".txt");
         //printf ("filename = %s\n", filename);
-        
         fp = fopen(filename, "w");          // creates file in WRITE mode with filename
         if ( fp == NULL )                   // if file pointer is not valid-
         {
             printf("Error opening file: %s\n", filename);
             return 1;
         }
-        
+        fprintf(fp, "%d\n", random_number);
         fclose(fp);                         //if the file stays open, it cant be accessed
     }
     
     create_list_of_numbers();    //create link list and copy rand numbers into it
     add_strings_to_list();
+    sort_list_ascending_order();
     
+    temp_node = ns_list;
+    
+    while (temp_node != NULL)   //if next == NULL, were at the end of the list
+    {
+        printf("list_member: number: %d\n", temp_node->number);
+        temp_node = temp_node->next;  //moves to the next element in the list
+    }
+
     getc(stdin);
     
     return 0;
@@ -74,6 +87,7 @@ int randomNumberGen(int seed)
     return (unsigned int)(number/65536) % 32768;
 }
 
+
 int create_list_of_numbers()
 {
     FILE *fp;
@@ -84,21 +98,21 @@ int create_list_of_numbers()
     
     for (i=0; i<10; i++)
     {
-        random_number = randomNumberGen(i);
         strcpy(filename, "file_");
         len = strlen(filename);
         filename[len] = '0' + i;
         filename[len+1] = '\0';             // add null char at the end
         strcat(filename, ".txt");
+
         
-        fp = fopen(filename, "r");          // creates file in WRITE mode with filename
+        fp = fopen(filename, "r");
         if ( fp == NULL )                   // if file pointer is not valid-
         {
             printf("Error opening file: %s\n", filename);
             return 1;
         }
         fscanf(fp, "%d", &random_number);
-        printf ("filename = %s %d\n", filename, random_number);
+        printf ("filename: %s, number: %d\n", filename, random_number);
         add_number_to_list(random_number);
         
         fclose(fp);
@@ -112,15 +126,13 @@ int create_list_of_numbers()
         temp_node = temp_node->next;  //moves to the next element in the list
     }
     
-    
     return 0;
+
 }
 
 int add_number_to_list(int number)
 {
     struct num_and_string *new_node, *temp_node;
-    
-    
     
     new_node = (struct num_and_string *)malloc(sizeof(struct num_and_string));
     if(new_node == NULL)          //if malloc returns a NULL, it didnt work
@@ -147,6 +159,8 @@ int add_number_to_list(int number)
             temp_node = temp_node->next;  //moves to the next element in the list
         }
         //Here, temp_node is the last element in the list
+
+        
         temp_node->next = new_node;
     }
     return 0;
@@ -156,49 +170,59 @@ int add_strings_to_list()
 {
     struct num_and_string *temp_node;
     int i = 0;
+    //
     temp_node = ns_list;        //the following logic traverses the list
+    if (temp_node == NULL) printf ("temp node NULL");
+
     
     while (temp_node != NULL)   //if next == NULL, were at the end of the list
     {
         temp_node->poetry = get_poetry_line(i);
         i++;
-        if(temp_node->poetry !=NULL)
+        //if(temp_node->poetry !=NULL)
             printf("i = %d, %s\n",i,temp_node->poetry);
         temp_node = temp_node->next;  //moves to the next element in the list
     }
     return 0;
 }
-
 char *get_poetry_line(int num)    //char* returns pointer to string
 {
     FILE *fp;
     char line[80];
     char *word, *poetry_line;
-    if(num > 9) {
-        printf ("wrong arg #: %d\n", num);    }
-    
-    fp = fopen("ten_green_bottles.txt", "r");
-    if(fp == NULL) {
-        printf("error: no open\n");
+
+    if(num > 9)
+    {
+        printf ("wrong arg num: %d\n", num);
         return NULL;
     }
+    
+    fp = fopen("ten_green_bottles.txt", "r");
+    if(fp == NULL)
+    {
+        printf("error: cannot open file: ten_green_bottles.txt");
+        return NULL;
+    }
+    
     while( fgets(line, 70, fp) )
     {
         word = get_first_word(line);
+        
         if(word != NULL)
         {
-        if(strcmp(word, number_map[num]) == 0)
-        {
-            poetry_line = (char *)malloc(strlen(line)+1);
-            if (poetry_line == NULL);
+            if(strcmp(word, number_map[num]) == 0)
             {
-                printf("error in get_poetry_line: cannot allocate mem: %d\n", num);
-                return NULL;
+                poetry_line = (char *)malloc(strlen(line)+1);
+                if (poetry_line == NULL);
+                {
+                    printf("error in get_poetry_line: cannot allocate mem: %d\n", num);
+                    fclose(fp);
+                    return NULL;
+                }
+                strcpy(poetry_line, line);
+                fclose(fp);
+                return poetry_line;    //to calling function
             }
-            strcpy(poetry_line, line);
-            fclose(fp);
-            return poetry_line;    //to calling function
-        }
         }
     }
     fclose(fp);
@@ -208,9 +232,11 @@ char *get_poetry_line(int num)    //char* returns pointer to string
 char *get_first_word(char *line)
 {
     static char word[10];   //calling function can access this STATIC even tho is is declared in the called function. STSTIC vars stay alive as long as the program is alive
-    int i, j = 0;
+    int i, j;
     
-    while ( (line[i] != 0) && isspace(line[i])){     //runs while not 0 and while spaces.
+    i = 0; j = 0;
+    
+    while ( (line[i] != 0) && isspace(line[i]))
         i++;  //
         if(line[i] == 0)  //we hit the end of the line
         {
@@ -225,9 +251,72 @@ char *get_first_word(char *line)
         
         return word;
     }
+
+void sort_list_ascending_order()
+{
+    struct num_and_string *curr, *prev, *temp_node;
     
-    return 0;
+    if (ns_list == NULL)
+        return;
+    
+    curr = prev = ns_list;
+    
+    while (curr != NULL)
+    {
+        if (curr->number >= prev->number) //already in ascending order
+        {
+            prev = curr;
+            curr = curr->next;
+        }
+        else // not ascending    curr->number < prev->number
+        {
+            temp_node = curr;
+            prev->next = curr->next;
+            curr = curr->next;
+            insert_node_ascending(temp_node);
+        }
+    }
 }
+
+void insert_node_ascending(struct num_and_string *new_node)
+{
+    struct num_and_string *iprev, *icurr;
+    if (ns_list == NULL)
+        return;
+    
+    icurr = iprev = ns_list;
+    
+    while (icurr != NULL)
+    {
+        if (new_node->number > icurr->number)
+        {
+            iprev = icurr;
+            icurr = icurr->next;
+        }
+        else // new-node has to be inserted before curr node
+            //because this new_node->number <= icurr->number
+        {
+            if (icurr == iprev)
+            {
+                new_node->next = icurr;
+                ns_list = new_node;     //new node is at beginning of list now
+            }
+            else
+            {
+                new_node->next = icurr;
+                iprev->next = new_node;
+            }
+            return;
+        }
+    }
+    //new node has to be inserted at the end of the list
+    new_node->next = NULL;
+    iprev->next = new_node;
+    return;
+}
+
+
+
 
 
 
